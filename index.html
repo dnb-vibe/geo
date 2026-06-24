@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>가게 좌표 변환기 (카카오)</title>
+<style>
+  body { font-family: -apple-system, 'Malgun Gothic', sans-serif; margin: 0; padding: 24px; background: #f7f8f9; color: #222; }
+  h1 { font-size: 18px; margin: 0 0 6px; }
+  .sub { font-size: 13px; color: #667; margin-bottom: 16px; }
+  .btns { margin: 14px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  button { background: #2AC1BC; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  button.sec { background: #fff; color: #2AC1BC; border: 1px solid #2AC1BC; }
+  table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 8px; overflow: hidden; font-size: 13.5px; }
+  th, td { border: 1px solid #e5e8eb; padding: 9px 10px; text-align: left; }
+  th { background: #2AC1BC; color: #fff; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .ok { color: #1a8; font-weight: 700; }
+  .fail { color: #c00; font-weight: 700; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; }
+  .toast.show { opacity: 1; }
+  .note { font-size: 12px; color: #888; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>🗺️ 가게 좌표 변환기 (카카오 정확 좌표)</h1>
+  <div class="sub">주소를 카카오로 변환합니다. 표가 다 채워지면 아래 <b>복사</b> 버튼으로 시트에 붙여넣으세요.</div>
+
+  <div class="btns">
+    <button id="copyLatLng">위도·경도 복사 (B열부터 붙여넣기)</button>
+    <button id="copyAll" class="sec">전체 복사 (주소·위도·경도)</button>
+  </div>
+
+  <table id="tbl">
+    <thead>
+      <tr><th style="width:46%">전체 주소</th><th>위도</th><th>경도</th><th>상태</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="note">※ 카카오 지도 서비스라 이 페이지는 <b>localhost</b> 또는 등록된 도메인에서 열어야 동작해요. (예: 작업 폴더에서 <code>python -m http.server 8000</code> → <code>http://localhost:8000/geocode.html</code>)</div>
+
+  <div class="toast" id="toast"></div>
+
+<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=487ae20db913f56842d71ff49a7f522e&libraries=services&autoload=false"></script>
+<script>
+  const ADDRESSES = [
+    "서울 송파구 석촌호수로 188 1층 112호",
+    "서울 송파구 삼학사로 90 1층",
+    "서울 송파구 송파대로 438 송파동",
+    "서울 송파구 가락로 108 1층 담소 석촌2호점",
+    "서울 송파구 송파대로45길 3-24",
+    "서울 송파구 삼학사로14길 16 1층",
+    "서울 송파구 백제고분로40길 4",
+    "서울 송파구 가락로 56 1층"
+  ];
+
+  const results = ADDRESSES.map(a => ({ addr: a, lat: '', lng: '', status: '대기' }));
+
+  function render() {
+    const tb = document.querySelector('#tbl tbody');
+    tb.innerHTML = results.map(r => `
+      <tr>
+        <td>${r.addr}</td>
+        <td class="num">${r.lat}</td>
+        <td class="num">${r.lng}</td>
+        <td class="${r.status === '완료' ? 'ok' : (r.status === '실패' ? 'fail' : '')}">${r.status}</td>
+      </tr>`).join('');
+  }
+  render();
+
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1600);
+  }
+
+  function geocodeOne(geocoder, addr) {
+    return new Promise(resolve => {
+      geocoder.addressSearch(addr, (res, status) => {
+        if (status === kakao.maps.services.Status.OK && res[0]) {
+          resolve({ lat: Number(res[0].y).toFixed(6), lng: Number(res[0].x).toFixed(6) });
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  kakao.maps.load(async () => {
+    const geocoder = new kakao.maps.services.Geocoder();
+    for (let i = 0; i < results.length; i++) {
+      const out = await geocodeOne(geocoder, results[i].addr);
+      if (out) { results[i].lat = out.lat; results[i].lng = out.lng; results[i].status = '완료'; }
+      else {
+        // 상세 표기(1층/호수 등) 제거 후 재시도
+        const simple = results[i].addr.replace(/\s*\d*층.*$/, '').replace(/\s*\d+호.*$/, '').trim();
+        const retry = simple !== results[i].addr ? await geocodeOne(geocoder, simple) : null;
+        if (retry) { results[i].lat = retry.lat; results[i].lng = retry.lng; results[i].status = '완료'; }
+        else { results[i].status = '실패'; }
+      }
+      render();
+    }
+    toast('변환 완료! 복사 버튼을 눌러주세요.');
+  });
+
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); toast('복사됐어요!'); }
+    catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('복사됐어요!'); } catch (_) { toast('복사 실패 — 표에서 직접 선택해 주세요.'); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  document.getElementById('copyLatLng').addEventListener('click', () => {
+    const text = results.map(r => `${r.lat}\t${r.lng}`).join('\n');
+    copyText(text);
+  });
+  document.getElementById('copyAll').addEventListener('click', () => {
+    const text = results.map(r => `${r.addr}\t${r.lat}\t${r.lng}`).join('\n');
+    copyText(text);
+  });
+</script>
+</body>
+</html>
