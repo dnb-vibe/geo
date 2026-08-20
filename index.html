@@ -1,127 +1,220 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>가게 좌표 변환기 (카카오)</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>가까운 정비소 찾기</title>
 <style>
-  body { font-family: -apple-system, 'Malgun Gothic', sans-serif; margin: 0; padding: 24px; background: #f7f8f9; color: #222; }
-  h1 { font-size: 18px; margin: 0 0 6px; }
-  .sub { font-size: 13px; color: #667; margin-bottom: 16px; }
-  .btns { margin: 14px 0; display: flex; gap: 8px; flex-wrap: wrap; }
-  button { background: #2AC1BC; color: #fff; border: none; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
-  button.sec { background: #fff; color: #2AC1BC; border: 1px solid #2AC1BC; }
-  table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 8px; overflow: hidden; font-size: 13.5px; }
-  th, td { border: 1px solid #e5e8eb; padding: 9px 10px; text-align: left; }
-  th { background: #2AC1BC; color: #fff; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .ok { color: #1a8; font-weight: 700; }
-  .fail { color: #c00; font-weight: 700; }
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; }
-  .toast.show { opacity: 1; }
-  .note { font-size: 12px; color: #888; margin-top: 10px; }
-</style>
-</head>
+  :root{--mint:#2ac1bc;--mint-soft:#e3f7f6;--ink:#1c2126;--ink-sub:#6b7480;
+    --line:#eceef1;--bg:#f4f5f7;--danger:#e5484d;--naver:#03c75a;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;}
+  body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#dfe2e6;color:var(--ink);}
+  .frame{max-width:440px;margin:0 auto;background:var(--bg);min-height:100vh;position:relative;}
+  .top{background:#fff;position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;
+    padding:15px 18px;border-bottom:1px solid var(--line);font-weight:800;font-size:15px;}
+  .top .bk{font-size:20px;color:#98a0aa;cursor:pointer;}
+  .wrap{padding:20px 18px 40px;}
+  h1.page{font-size:22px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px;}
+  .lead{font-size:13.5px;color:var(--ink-sub);margin-bottom:16px;}
+
+  /* 내 위치 정렬 버튼 */
+  .locbtn{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--mint-soft);color:#127c78;font-weight:800;font-size:14px;
+    padding:13px;border:none;border-radius:12px;margin-bottom:14px;cursor:pointer;}
+  .locbtn.on{background:var(--mint);color:#fff;}
+  .locbtn .dot{width:9px;height:9px;border-radius:50%;background:currentColor;}
+  .loc-note{font-size:12px;color:var(--ink-sub);margin:-6px 2px 14px;line-height:1.5;}
+
+  /* 지역(권역) 필터 칩 */
+  .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;}
+  .chip{padding:9px 0;text-align:center;border-radius:20px;border:1.5px solid #dfe3e8;background:#fff;
+    font-size:13.5px;font-weight:700;color:#5a626c;cursor:pointer;white-space:nowrap;}
+  .chip.sel{border-color:var(--mint);background:var(--mint-soft);color:#127c78;font-weight:800;}
+
+  .count{font-size:12.5px;color:var(--ink-sub);margin-bottom:10px;}
+  .count b{color:var(--ink);}
+
+  /* 정비소 카드 */
+  .shop{background:#fff;border:1px solid var(--line);border-radius:15px;padding:15px 15px 13px;margin-bottom:11px;}
+  .r1{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+  .nm{font-size:16px;font-weight:800;}
+  .km{margin-left:auto;background:var(--mint-soft);color:#127c78;font-weight:800;font-size:12px;
+    padding:4px 9px;border-radius:20px;white-space:nowrap;}
+  .rank{width:22px;height:22px;border-radius:7px;background:#2b3038;color:#fff;font-size:12px;font-weight:800;
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .sign{display:inline-flex;align-items:center;gap:5px;background:#f2f4f6;color:#6b7480;
+    border:1px solid #e6e9ed;font-size:12px;font-weight:600;padding:4px 9px;border-radius:8px;margin-bottom:8px;}
+  .sign b{font-weight:700;color:#4b535c;}
+  .ad{font-size:12.5px;color:var(--ink-sub);line-height:1.45;margin-bottom:11px;}
+  .btns{display:flex;gap:8px;}
+  .btns a{flex:1;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+    gap:6px;font-size:14px;font-weight:800;text-decoration:none;cursor:pointer;}
+  .btn-call{background:var(--mint);color:#fff;}
+  .btn-map{background:#fff;color:#3d454e;border:1.5px solid #dfe3e8;}
+  .nlogo{background:var(--naver);color:#fff;font-weight:900;font-size:12px;width:19px;height:19px;
+    border-radius:5px;display:inline-flex;align-items:center;justify-content:center;letter-spacing:-.5px;}
+  .empty{text-align:center;color:var(--ink-sub);font-size:14px;padding:40px 0;line-height:1.6;}
+</style></head>
 <body>
-  <h1>🗺️ 가게 좌표 변환기 (카카오 정확 좌표)</h1>
-  <div class="sub">주소를 카카오로 변환합니다. 표가 다 채워지면 아래 <b>복사</b> 버튼으로 시트에 붙여넣으세요.</div>
+<div class="frame">
+  <div class="top"><span class="bk">‹</span> 가까운 정비소 찾기</div>
+  <div class="wrap">
+    <h1 class="page">가까운 정비소 찾기</h1>
+    <p class="lead">전국 61개 제휴 정비소에서 탑박스 구매 후 설치할 수 있어요.</p>
 
-  <div class="btns">
-    <button id="copyLatLng">위도·경도 복사 (B열부터 붙여넣기)</button>
-    <button id="copyAll" class="sec">전체 복사 (주소·위도·경도)</button>
+    <button class="locbtn" id="locBtn"><span class="dot"></span> 내 위치 기준 가까운 순 보기</button>
+    <div class="loc-note" id="locNote" style="display:none;"></div>
+
+    <div class="chips" id="chips"></div>
+    <div class="count" id="count"></div>
+    <div id="list"></div>
   </div>
+</div>
 
-  <table id="tbl">
-    <thead>
-      <tr><th style="width:46%">전체 주소</th><th>위도</th><th>경도</th><th>상태</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-
-  <div class="note">※ 카카오 지도 서비스라 이 페이지는 <b>localhost</b> 또는 등록된 도메인에서 열어야 동작해요. (예: 작업 폴더에서 <code>python -m http.server 8000</code> → <code>http://localhost:8000/geocode.html</code>)</div>
-
-  <div class="toast" id="toast"></div>
-
-<script src="//dapi.kakao.com/v2/maps/sdk.js?appkey=487ae20db913f56842d71ff49a7f522e&libraries=services&autoload=false"></script>
 <script>
-  const ADDRESSES = [
-    "서울 송파구 석촌호수로 188 1층 112호",
-    "서울 송파구 삼학사로 90 1층",
-    "서울 송파구 송파대로 438 송파동",
-    "서울 송파구 가락로 108 1층 담소 석촌2호점",
-    "서울 송파구 송파대로45길 3-24",
-    "서울 송파구 삼학사로14길 16 1층",
-    "서울 송파구 백제고분로40길 4",
-    "서울 송파구 가락로 56 1층"
-  ];
+/* =========================================================================
+   ▼▼▼  정비소 데이터 — 실제 목록으로 이 배열만 교체하면 됩니다  ▼▼▼
+   region : 권역(서울/경기/인천/경상/전라/충청)
+   name   : 등록 정비소명
+   sign   : (선택) 현장 간판명이 등록명과 다를 때만 입력 → 카드에 '현장 간판'으로 표시
+   addr   : 주소
+   tel    : 전화번호(하이픈 포함 가능)
+   mapUrl : (선택) 네이버 지도 링크. 없으면 이름+주소로 네이버 검색 링크 자동 생성
+   lat/lng: 위경도(주소 지오코딩 1회 입력). 없으면 '가까운 순'만 비활성, 목록/전화/지도는 정상
+   ========================================================================= */
+const SHOPS = [
+  {region:'서울', name:'진바이크 동대문장안점', sign:'청룡바이크', addr:'서울 동대문구 한천로 212 1층', tel:'010-5579-8595', mapUrl:'https://naver.me/G1wSaKLU', lat:37.5735, lng:127.064},
+  {region:'서울', name:'진바이크 동작대방점', sign:'대방오토바이', addr:'서울 동작구 대방동 407-41', tel:'02-822-1132', mapUrl:'https://naver.me/FSwi3V9j', lat:37.506, lng:126.927},
+  {region:'서울', name:'진바이크 송파점2', sign:'진바이크송파', addr:'서울 송파구 가락로2길 3-17', tel:'070-8841-7021', mapUrl:'https://naver.me/F5sjgaxW', lat:37.495, lng:127.118},
+  {region:'서울', name:'진바이크 서울중랑점', sign:'삼성모터스', addr:'서울 중랑구 상봉로29', tel:'02-491-5252', mapUrl:'https://naver.me/Fw78r8g7', lat:37.596, lng:127.0855},
+  {region:'서울', name:'진바이크 용산원효점', sign:'원용공업사', addr:'서울 용산구 원효로 250', tel:'02-3273-8444', mapUrl:'https://naver.me/GM3xnHqb', lat:37.534, lng:126.96},
+  {region:'경기', name:'진바이크 경기광명점', sign:'병아리모터스', addr:'경기 광명시 광명로768-1', tel:'010-8854-3156', mapUrl:'https://naver.me/GEddx14e', lat:37.479, lng:126.866},
+  {region:'경기', name:'진바이크 부천오정점2', addr:'경기 부천시 오정로 209-4 태영빌딩 101호', tel:'032-682-5949', mapUrl:'https://naver.me/IgMmaoVn', lat:37.543, lng:126.801},
+  {region:'경기', name:'진바이크 북수원점', sign:'에이스오토바이', addr:'경기 수원시 장안구 송정로 30', tel:'031-243-1677', mapUrl:'https://naver.me/xExmjsRD', lat:37.301, lng:126.997},
+  {region:'경기', name:'진바이크 수원곡반정점', addr:'경기 수원시 권선구 동수원로 146번길 192-4', tel:'010-5904-1452', mapUrl:'https://naver.me/IFEU9L3q', lat:37.247, lng:127.03},
+  {region:'경기', name:'진바이크 수원호매실점', sign:'와리가리바이크', addr:'경기 수원시 매실로53번길 11', tel:'010-8531-3089', mapUrl:'https://naver.me/5newkkHn', lat:37.262, lng:126.964},
+  {region:'경기', name:'진바이크 수원매탄점', addr:'경기 수원시 영통구 매봉로35번길38-22', tel:'010-4955-7293', mapUrl:'https://naver.me/xhzVO45c', lat:37.256, lng:127.056},
+  {region:'경기', name:'진바이크 시흥정왕점', sign:'진바이크 정왕점', addr:'경기 시흥시 정왕천로 389번길 35-1', tel:'031-499-0644', mapUrl:'https://naver.me/xZKdatGR', lat:37.348, lng:126.743},
+  {region:'경기', name:'진바이크 안산선부점', addr:'경기 안산시 단원구 지곡로 30', tel:'031-402-6578', mapUrl:'https://naver.me/5WU5rnHN', lat:37.335, lng:126.793},
+  {region:'경기', name:'진바이크 안산상록점', sign:'진바이크 본오점', addr:'경기 안산시 상록구 반석로 86,1층', tel:'031-502-5022', mapUrl:'https://naver.me/5Xc2DNnv', lat:37.301, lng:126.866},
+  {region:'경기', name:'진바이크 오산원동점', sign:'진바이크 원동점', addr:'경기 오산시 오산시 오산로 181', tel:'031-375-5242', mapUrl:'https://naver.me/GQSKHw6r', lat:37.152, lng:127.07},
+  {region:'경기', name:'진바이크 오산청학점', addr:'경기 오산시 오산시 청학로 52', tel:'031-375-5282', mapUrl:'https://naver.me/FfsVg0Vp', lat:37.162, lng:127.08},
+  {region:'경기', name:'진바이크 용인처인구점', sign:'진바이크 청학점', addr:'경기 용인시 처인구 김량장동 336-15 1층2호', tel:'031-335-5547', mapUrl:'https://naver.me/GYGNUKbc', lat:37.234, lng:127.207},
+  {region:'경기', name:'진바이크 평택고덕점', sign:'엠비아이 용인대리점', addr:'경기 평택시 고덕여염5길 50', tel:'010-8385-7297', mapUrl:'https://naver.me/xExCibYh', lat:37.043, lng:127.029},
+  {region:'경기', name:'진바이크 평택안중점', sign:'진바이크', addr:'경기 평택시 안중읍 안현로 418', tel:'031-681-5223', mapUrl:'https://naver.me/5Vx8UnhB', lat:36.98, lng:126.915},
+  {region:'경기', name:'진바이크 평택송탄점2', sign:'경기오토바이', addr:'경기 평택시 탄현로 162', tel:'010-8288-7835', mapUrl:'https://naver.me/xNL0yanM', lat:37.079, lng:127.062},
+  {region:'경기', name:'진바이크 평택세교점', sign:'진바이크', addr:'경기 평택시 평택로180', tel:'010-3140-8009', mapUrl:'https://naver.me/FfBG4udh', lat:36.999, lng:127.108},
+  {region:'경기', name:'진바이크 화성남양점', addr:'경기 화성시 역골로63-10', tel:'010-6396-2901', mapUrl:'https://naver.me/5p03CFMr', lat:37.214, lng:126.818},
+  {region:'경기', name:'진바이크 화성봉담점', addr:'경기 화성시 봉담읍 동화역말길 141', tel:'031-223-5354', mapUrl:'https://naver.me/GHY8wAzP', lat:37.213, lng:126.954},
+  {region:'경기', name:'진바이크 화성영천점', sign:'진바이크', addr:'경기 화성시 지산1길22-8', tel:'010-8578-2229', mapUrl:'https://naver.me/xbK9P4wa', lat:37.201, lng:127.108},
+  {region:'경기', name:'진바이크 화성2동탄점', sign:'진바이크', addr:'경기 화성시 화성시 동탄대로 587', tel:'031-377-8958', mapUrl:'https://naver.me/xX79879F', lat:37.2, lng:127.098},
+  {region:'경기', name:'진바이크 화성진안점', sign:'라이더스배달대행', addr:'경기 화성시 화성시 진안동 888-8', tel:'031-234-8218', mapUrl:'https://naver.me/xrSOrZTu', lat:37.199, lng:127.072},
+  {region:'경기', name:'진바이크 화성향남점', sign:'동탄아주오토바이총판', addr:'경기 화성시 향남읍 발안로 25', tel:'031-8059-5282', mapUrl:'https://naver.me/FQymxG9o', lat:37.133, lng:126.916},
+  {region:'인천', name:'진바이크 인천미추홀점', sign:'진바이크 삼호모터스', addr:'인천 미추홀구 인주대로 71 1층', tel:'032-887-1151', mapUrl:'https://naver.me/FJbpHfwv', lat:37.462, lng:126.656},
+  {region:'인천', name:'진바이크 인천남동점', sign:'진바이크', addr:'인천 미추홀구 인하로 391 광해빌딩 3~4층', tel:'032-429-4159', mapUrl:'https://naver.me/5OtUkNj7', lat:37.45, lng:126.656},
+  {region:'인천', name:'진바이크 인천검단점', sign:'진바이크 미추홀점', addr:'인천 서구 서곶로 870 1층', tel:'032-564-1128', mapUrl:'https://naver.me/Fbqta4w5', lat:37.603, lng:126.665},
+  {region:'인천', name:'진바이크 인천청라점2', sign:'진바이크 남동점', addr:'인천 서구 청라에메랄드로149번길 6', tel:'032-567-5282', mapUrl:'https://naver.me/GKIvfUxT', lat:37.533, lng:126.647},
+  {region:'인천', name:'진바이크 인천영종운서점', sign:'진바이크 검단점', addr:'인천 중구 운서로63번길3-2', tel:'010-5912-5344', mapUrl:'https://naver.me/FUh4wNrw', lat:37.493, lng:126.49},
+  {region:'경상', name:'진바이크 거제장평점', addr:'경남 거제시 장평1로161', tel:'010-4945-6941', mapUrl:'https://naver.me/GlRv0eSC', lat:34.888, lng:128.621},
+  {region:'경상', name:'진바이크 경북경산점', sign:'진바이크 서구점', addr:'경북 경산시 옥산로 98, 101호(옥산동)', tel:'010-3806-7280', mapUrl:'https://naver.me/FDcx8UZs', lat:35.825, lng:128.736},
+  {region:'경상', name:'진바이크 김해구산점', addr:'경남 김해시 구산로 34,1층(이전후주소)', tel:'010-2593-3953', mapUrl:'https://naver.me/FJIjgLlS', lat:35.245, lng:128.885},
+  {region:'경상', name:'진바이크 김해내외점', sign:'중앙오토바이', addr:'경남 김해시 금관대로1288', tel:'010-2685-1047', mapUrl:'https://naver.me/xQirNZ77', lat:35.235, lng:128.872},
+  {region:'경상', name:'진바이크 부산금정점', sign:'스즈키 옥산오토바이', addr:'부산 금정구 금강로 398', tel:'051-515-7727', mapUrl:'https://naver.me/xAfEnfOE', lat:35.243, lng:129.09},
+  {region:'경상', name:'진바이크 부산기장점', addr:'부산 기장군 기장읍 기장대로 465', tel:'051-721-8668', mapUrl:'https://naver.me/FDcx8Gvb', lat:35.244, lng:129.213},
+  {region:'경상', name:'진바이크 부산동래점', addr:'부산 동래구 안락로 78, 1층', tel:'010-6279-4671', mapUrl:'https://naver.me/xjg1WHiN', lat:35.205, lng:129.1},
+  {region:'경상', name:'진바이크 부산북구점', sign:'진바이크 금정구점', addr:'부산 북구 북구 만덕대로 120', tel:'051-337-5666', mapUrl:'https://naver.me/xzl0yT2H', lat:35.217, lng:129.033},
+  {region:'경상', name:'진바이크 부산사상점', sign:'진바이크 기장점', addr:'부산 사상구 괘감로 108', tel:'051-314-3119', mapUrl:'https://naver.me/FhfnLxCO', lat:35.162, lng:128.99},
+  {region:'경상', name:'진바이크 부산연제점', sign:'진바이크 동래구점', addr:'부산 연제구 중앙대로 1075번길77, 1층', tel:'051-866-9260', mapUrl:'https://naver.me/FTXgRWi7', lat:35.187, lng:129.079},
+  {region:'경상', name:'진바이크 부산영도점2', addr:'부산 영도구 꿈나무길 64, 1층 (영선동1가)', tel:'010-7734-0444', mapUrl:'https://naver.me/Fc5T3icW', lat:35.087, lng:129.043},
+  {region:'경상', name:'진바이크 부산진구점', sign:'한창모터스', addr:'부산 진구 냉정로 250 1층', tel:'051-892-7133', mapUrl:'https://naver.me/x7ewKrdF', lat:35.156, lng:129.029},
+  {region:'경상', name:'진바이크 부산해운대점2', sign:'진바이크', addr:'부산 해운대구 대천로 42번길 28-7', tel:'051-703-0303', mapUrl:'https://naver.me/GhbU4JN7', lat:35.169, lng:129.173},
+  {region:'경상', name:'진바이크 경남양산점3', sign:'진바이크', addr:'경남 양산시 물금읍 황산로 737', tel:'010-2111-3322', mapUrl:'https://naver.me/F5aXreoq', lat:35.308, lng:129.009},
+  {region:'경상', name:'진바이크 울산동구점', addr:'울산 동구 대송로 57-1, 2호 (일산동)', tel:'052-201-0399', mapUrl:'https://naver.me/xF47W97B', lat:35.504, lng:129.416},
+  {region:'경상', name:'진바이크 마산합성점', sign:'진바이크 영도구점', addr:'경남 창원시 마산회원구 합성옛길 209', tel:'010-9182-0061', mapUrl:'https://naver.me/Gj6s8yMA', lat:35.226, lng:128.579},
+  {region:'경상', name:'진바이크 창원상남점', addr:'경남 창원시 성산구 토월로 80', tel:'055-286-1865', mapUrl:'https://naver.me/Gsoux3s3', lat:35.228, lng:128.681},
+  {region:'전라', name:'진바이크 광주518점', sign:'진바이크', addr:'광주 서구 상무민주로32번길 19-1 (쌍촌동)', tel:'010-3608-2981', mapUrl:'https://naver.me/5ulUqokA', lat:35.152, lng:126.851},
+  {region:'충청', name:'진바이크 충남계룡점', sign:'진바이크', addr:'충남 계룡시 엄사면 번영로 80', tel:'1811-2977', mapUrl:'https://naver.me/GSQJTk5r', lat:36.274, lng:127.248},
+  {region:'충청', name:'진바이크 당진점', sign:'진바이크', addr:'충남 당진시 서부로 233', tel:'041-357-5282', mapUrl:'https://naver.me/x8DOe4uw', lat:36.893, lng:126.628},
+  {region:'충청', name:'진바이크 대전동구용전점', sign:'싸다구바이크', addr:'대전 동구 동구용전동80-19', tel:'010-3433-0901', mapUrl:'https://naver.me/5chI1HQX', lat:36.352, lng:127.436},
+  {region:'충청', name:'진바이크 대전동구홍도점', sign:'진바이크', addr:'대전 동구 동산초교로 55번길17', tel:'010-5405-8842', mapUrl:'https://naver.me/FZ2wvG12', lat:36.356, lng:127.43},
+  {region:'충청', name:'진바이크 대전서구점', addr:'대전 서구 동서대로1026(이전후주소)', tel:'042-535-8938', mapUrl:'https://naver.me/FK0ZbWq9', lat:36.335, lng:127.384},
+  {region:'충청', name:'진바이크 대전유성점', sign:'진바이크 계룡점', addr:'대전 유성구 구즉로54번길 46', tel:'042-252-8272', mapUrl:'https://naver.me/50B97FxW', lat:36.436, lng:127.396},
+  {region:'충청', name:'진바이크 대전유성장대점', sign:'혼다모터사이클 당진점', addr:'대전 유성구 장대로72', tel:'010-5033-6863', mapUrl:'https://naver.me/xm04F7Qv', lat:36.362, lng:127.334},
+  {region:'충청', name:'진바이크 제천점', sign:'진바이크 용전점', addr:'충북 제천시 의병대로 62', tel:'010-5482-5682', mapUrl:'https://naver.me/GOhFvO0Y', lat:37.136, lng:128.191},
+  {region:'충청', name:'진바이크 청주상당점', sign:'진바이크', addr:'충북 청주시 상당구 서문동 222-13', tel:'043-224-4989', mapUrl:'https://naver.me/F2ZArG7I', lat:36.635, lng:127.49},
+  {region:'충청', name:'진바이크 청주청원점', sign:'진바이크 서구점', addr:'충북 청주시 청원구 충청대로72번길1, 1층1호 진바이크 청주청원점(공일공)', tel:'043-212-0102', mapUrl:'https://naver.me/5k7TFzp7', lat:36.66, lng:127.482},
+  {region:'충청', name:'진바이크 청주흥덕점', sign:'대림오토바이 대전점', addr:'충북 청주시 풍년로 172번길 32-1', tel:'010-3707-1110', mapUrl:'https://naver.me/51u1P4Qq', lat:36.63, lng:127.44},
+];
+/* ▲▲▲  여기까지가 교체 대상 데이터  ▲▲▲ */
 
-  const results = ADDRESSES.map(a => ({ addr: a, lat: '', lng: '', status: '대기' }));
+const REGION_ORDER = ['서울','경기','인천','경상','전라','충청']; // 강원 없음 // 칩 노출 순서(수도권 → 가나다)
+const $ = s => document.querySelector(s);
+let curRegion = '전체';
+let myPos = null;
 
-  function render() {
-    const tb = document.querySelector('#tbl tbody');
-    tb.innerHTML = results.map(r => `
-      <tr>
-        <td>${r.addr}</td>
-        <td class="num">${r.lat}</td>
-        <td class="num">${r.lng}</td>
-        <td class="${r.status === '완료' ? 'ok' : (r.status === '실패' ? 'fail' : '')}">${r.status}</td>
-      </tr>`).join('');
-  }
-  render();
+function distKm(a, b){
+  const R=6371, r=x=>x*Math.PI/180;
+  const dLat=r(b.lat-a.lat), dLng=r(b.lng-a.lng);
+  const s=Math.sin(dLat/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function fmtKm(km){ return km < 1 ? '약 '+Math.round(km*1000)+'m' : '약 '+km.toFixed(1)+'km'; }
+function telHref(t){ return 'tel:' + String(t).replace(/[^0-9]/g,''); }
+function mapHref(s){ return s.mapUrl || ('https://map.naver.com/p/search/' + encodeURIComponent(s.name + ' ' + s.addr)); }
 
-  function toast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 1600);
-  }
-
-  function geocodeOne(geocoder, addr) {
-    return new Promise(resolve => {
-      geocoder.addressSearch(addr, (res, status) => {
-        if (status === kakao.maps.services.Status.OK && res[0]) {
-          resolve({ lat: Number(res[0].y).toFixed(6), lng: Number(res[0].x).toFixed(6) });
-        } else {
-          resolve(null);
-        }
-      });
-    });
-  }
-
-  kakao.maps.load(async () => {
-    const geocoder = new kakao.maps.services.Geocoder();
-    for (let i = 0; i < results.length; i++) {
-      const out = await geocodeOne(geocoder, results[i].addr);
-      if (out) { results[i].lat = out.lat; results[i].lng = out.lng; results[i].status = '완료'; }
-      else {
-        // 상세 표기(1층/호수 등) 제거 후 재시도
-        const simple = results[i].addr.replace(/\s*\d*층.*$/, '').replace(/\s*\d+호.*$/, '').trim();
-        const retry = simple !== results[i].addr ? await geocodeOne(geocoder, simple) : null;
-        if (retry) { results[i].lat = retry.lat; results[i].lng = retry.lng; results[i].status = '완료'; }
-        else { results[i].status = '실패'; }
-      }
-      render();
-    }
-    toast('변환 완료! 복사 버튼을 눌러주세요.');
+function buildChips(){
+  const present = REGION_ORDER.filter(rg => SHOPS.some(s=>s.region===rg));
+  const regions = ['전체', ...present];
+  const box = $('#chips'); box.innerHTML='';
+  regions.forEach(rg=>{
+    const c=document.createElement('div');
+    c.className='chip'+(rg===curRegion?' sel':'');
+    c.textContent=rg;
+    c.onclick=()=>{ curRegion=rg; render(); };
+    box.appendChild(c);
   });
+}
 
-  async function copyText(text) {
-    try { await navigator.clipboard.writeText(text); toast('복사됐어요!'); }
-    catch (e) {
-      const ta = document.createElement('textarea');
-      ta.value = text; document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); toast('복사됐어요!'); } catch (_) { toast('복사 실패 — 표에서 직접 선택해 주세요.'); }
-      document.body.removeChild(ta);
-    }
+function render(){
+  buildChips();
+  let list = SHOPS.filter(s => curRegion==='전체' || s.region===curRegion);
+  if(myPos){
+    list = list.map(s => ({...s, _km: distKm(myPos, s)})).sort((a,b)=> a._km - b._km);
   }
+  $('#count').innerHTML = '총 <b>'+list.length+'곳</b>' + (myPos ? ' · 가까운 순' : '');
 
-  document.getElementById('copyLatLng').addEventListener('click', () => {
-    const text = results.map(r => `${r.lat}\t${r.lng}`).join('\n');
-    copyText(text);
-  });
-  document.getElementById('copyAll').addEventListener('click', () => {
-    const text = results.map(r => `${r.addr}\t${r.lat}\t${r.lng}`).join('\n');
-    copyText(text);
-  });
+  const wrap = $('#list');
+  if(!list.length){ wrap.innerHTML = '<div class="empty">해당 권역에 제휴 정비소가 없어요.<br>다른 지역을 선택해 주세요.</div>'; return; }
+
+  wrap.innerHTML = list.map((s,i)=>`
+    <div class="shop">
+      <div class="r1">
+        ${myPos ? `<span class="rank">${i+1}</span>` : ''}
+        <span class="nm">${s.name}</span>
+        ${myPos ? `<span class="km">${fmtKm(s._km)}</span>` : `<span class="km">${s.region}</span>`}
+      </div>
+      ${s.sign && !s.sign.includes('진바이크') ? `<div class="sign">${s.sign}</div>` : ''}
+      <div class="ad">${s.addr}</div>
+      <div class="btns">
+        <a class="btn-call" href="${telHref(s.tel)}">📞 전화하기</a>
+        <a class="btn-map" href="${mapHref(s)}" target="_blank" rel="noopener"><span class="nlogo">N</span> 지도</a>
+      </div>
+    </div>`).join('');
+}
+
+$('#locBtn').onclick = ()=>{
+  const btn=$('#locBtn'), note=$('#locNote');
+  if(!navigator.geolocation){
+    note.style.display='block'; note.textContent='이 브라우저에서는 위치 기능을 쓸 수 없어요. 지역을 선택해 찾아 주세요.'; return;
+  }
+  btn.textContent='위치 확인 중…';
+  navigator.geolocation.getCurrentPosition(
+    pos=>{ myPos={lat:pos.coords.latitude, lng:pos.coords.longitude};
+      btn.className='locbtn on'; btn.innerHTML='<span class="dot"></span> 내 위치 기준 정렬됨';
+      note.style.display='none'; render(); },
+    err=>{ btn.className='locbtn'; btn.innerHTML='<span class="dot"></span> 내 위치 기준 가까운 순 보기';
+      note.style.display='block'; note.textContent='위치 권한이 꺼져 있어 가까운 순 정렬을 못 했어요. 지역을 선택해 찾아 주세요.'; },
+    {enableHighAccuracy:true, timeout:8000}
+  );
+};
+
+render();
 </script>
-</body>
-</html>
+</body></html>
